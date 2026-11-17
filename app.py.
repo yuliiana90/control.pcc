@@ -1,0 +1,67 @@
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+
+st.set_page_config(page_title="Control PCC - Cacao", page_icon="🍫", layout="centered")
+
+st.title("🍫 Control de Puntos Críticos de Cocción y Enfriamiento")
+st.markdown("### Sistema HACCP - Planta de Cacao")
+
+# Simulación de datos iniciales o almacenamiento en memoria
+if "registros" not in st.session_state:
+    st.session_state.registros = [
+        {"Hora": "08:00", "Operario": "Carlos Pérez", "Lote": "LOTE-001", "Temperatura (°C)": 82.5, "Estado": "Normal"},
+        {"Hora": "09:30", "Operario": "Ana Gómez", "Lote": "LOTE-002", "Temperatura (°C)": 86.0, "Estado": "Alerta ⚠️"}
+    ]
+
+with st.form("form_pcc"):
+    st.subheader("Registro de Nueva Lectura")
+    col1, col2 = st.columns(2)
+    with col1:
+        operario = st.text_input("Nombre del Operario", "Leidy Arango")
+        lote = st.text_input("Código de Lote", "LOTE-003")
+    with col2:
+        hora = st.text_input("Hora de Registro", datetime.now().strftime("%H:%M"))
+        temperatura = st.number_input("Temperatura (°C)", min_value=0.0, max_value=120.0, value=80.0)
+    
+    # Límite crítico definido (ej: máximo 85°C para cocción)
+    limite_critico = 85.0
+    
+    submitted = st.form_submit_button("Guardar Registro")
+    if submitted:
+        estado = "Normal" if temperatura <= limite_critico else "Alerta ⚠️"
+        nuevo_registro = {
+            "Hora": hora,
+            "Operario": operario,
+            "Lote": lote,
+            "Temperatura (°C)": temperatura,
+            "Estado": estado
+        }
+        st.session_state.registros.append(nuevo_registro)
+        st.success("¡Registro guardado con éxito!")
+
+# Mostrar historial en tabla
+st.subheader("📋 Historial de Monitoreo de PCC")
+df = pd.DataFrame(st.session_state.registros)
+
+# Alerta visual si hay temperaturas fuera de rango
+for index, row in df.iterrows():
+    if row["Estado"] == "Alerta ⚠️":
+        st.error(f"⚠️ ¡ALERTA CRÍTICA! El lote {row['Lote']} registró {row['Temperatura']}°C a las {row['Hora']} (Supera el límite de {limite_critico}°C).")
+
+st.dataframe(df, use_container_width=True)
+
+# Gráfico de tendencia
+st.subheader("📈 Gráfico de Tendencia de Temperaturas")
+if not df.empty:
+    st.line_chart(df.set_index("Hora")["Temperatura (°C)"])
+
+# Descargar en CSV
+st.subheader("📥 Exportar Datos")
+csv = df.to_csv(index=False).encode('utf-8')
+st.download_button(
+    label="Descargar registro en CSV",
+    data=csv,
+    file_name='control_pcc_cacao.csv',
+    mime='text/csv',
+)
